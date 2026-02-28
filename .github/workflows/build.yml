@@ -1,0 +1,52 @@
+name: Build OrangeFox
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build Recovery
+    runs-on: ubuntu-20.04
+
+    steps:
+    - name: Checkout Device Tree
+      uses: actions/checkout@v3
+      with:
+        path: device/unowhy/k1002
+
+    - name: Set up Build Environment
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y git-core gnupg flex bison build-essential zip curl zlib1g-dev gcc-multilib g++-multilib libc6-dev-i386 libncurses5 lib32ncurses5-dev x11proto-core-dev libx11-dev lib32z1-dev libgl1-mesa-dev libxml2-utils xsltproc unzip fontconfig
+
+    - name: Download OrangeFox Source (Android 9.0)
+      run: |
+        mkdir -p ~/fox_sync
+        cd ~/fox_sync
+        git config --global user.name "Builder"
+        git config --global user.email "builder@example.com"
+        curl https://storage.googleapis.com/git-repo-downloads/repo > ~/repo
+        chmod a+x ~/repo
+        sudo mv ~/repo /usr/local/bin/repo
+        repo init -u https://gitlab.com/OrangeFox/Manifest.git -b fox_9.0 --depth=1
+        repo sync -c -j$(nproc --all) --force-sync --no-clone-bundle --no-tags
+
+    - name: Move Device Tree to Source
+      run: |
+        mv device/unowhy/k1002 ~/fox_sync/device/unowhy/k1002
+
+    - name: Build OrangeFox
+      run: |
+        cd ~/fox_sync
+        source build/envsetup.sh
+        export ALLOW_MISSING_DEPENDENCIES=true
+        export FOX_USE_TWRP_RECOVERY_IMAGE_BUILDER=1
+        export LC_ALL="C"
+        lunch omni_k1002-eng
+        mka recoveryimage
+
+    - name: Upload Recovery
+      uses: actions/upload-artifact@v3
+      with:
+        name: OrangeFox-k1002
+        path: ~/fox_sync/out/target/product/k1002/recovery.img
