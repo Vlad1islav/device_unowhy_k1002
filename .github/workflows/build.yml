@@ -6,49 +6,45 @@ on:
 jobs:
   build:
     name: Build Recovery
-    runs-on: ubuntu-22.04
+    # Стабильная и проверенная версия ОС для старых библиотек
+    runs-on: ubuntu-20.04
 
     steps:
     - name: Checkout Device Tree
       uses: actions/checkout@v4
       with:
-        path: device/unowhy/k1002
+        # Гитхаб скачает твой репозиторий (с файлом omni_k1002.mk) в папку device_tree
+        path: device_tree
 
     - name: Set up Build Environment
       run: |
-        sudo dpkg --add-architecture i386
         sudo apt-get update
-        sudo apt-get install -y software-properties-common
-        sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
-        sudo apt-get update
-        sudo apt-get install -y libncurses5 libncurses5:i386 lib32ncurses5-dev libtinfo5
-        sudo apt-get install -y git-core gnupg flex bison build-essential zip curl zlib1g-dev gcc-multilib g++-multilib libc6-dev-i386 x11proto-core-dev libx11-dev lib32z1-dev libgl1-mesa-dev libxml2-utils xsltproc unzip fontconfig
-
-    - name: Download OrangeFox Source
+        # Установка критически важных зависимостей, включая python2 и ncurses5
+        sudo apt-get install -y git-core gnupg flex bison build-essential zip curl zlib1g-dev gcc-multilib g++-multilib libc6-dev-i386 libncurses5 lib32ncurses5-dev x11proto-core-dev libx11-dev lib32z1-dev libgl1-mesa-dev libxml2-utils xsltproc unzip fontconfig python2 python-is-python2
+        
+    - name: Download OrangeFox Source (Android 9.0)
       run: |
-       # Полная очистка, чтобы старые ошибки не мешали
         rm -rf ~/fox_sync
         mkdir -p ~/fox_sync
         cd ~/fox_sync
         
-        # Настройка личности для гита
         git config --global user.name "Builder"
         git config --global user.email "builder@example.com"
         
-        # Инструмент repo
+        # Скачиваем repo
         curl https://storage.googleapis.com/git-repo-downloads/repo > ~/repo
         chmod a+x ~/repo
         sudo mv ~/repo /usr/local/bin/repo
         
-        # ВАЖНО: Используем GitHub зеркало и ОДНУ черточку перед 'u'
-        repo init -u https://github.com/OrangeFoxRecovery/Manifest.git -b fox_9.0 --depth=1
-        
-        # Синхронизация (качаем только самое нужное)
+        # GitHub-зеркало и анти-500 флаги
+        repo init -u https://github.com/OrangeFoxRecovery/Manifest.git -b fox_9.0 --depth=1 --no-clone-bundle
         repo sync -c -j$(nproc --all) --force-sync --no-clone-bundle --no-tags
 
-    - name: Move Device Tree
+    - name: Move Device Tree to Source
       run: |
-        mv device/unowhy/k1002 ~/fox_sync/device/unowhy/k1002
+        # БЕЗОПАСНЫЙ ПЕРЕНОС: Создаем папку unowhy, а затем целиком перемещаем твое дерево туда как k1002
+        mkdir -p ~/fox_sync/device/unowhy
+        mv $GITHUB_WORKSPACE/device_tree ~/fox_sync/device/unowhy/k1002
 
     - name: Build OrangeFox
       run: |
@@ -56,11 +52,14 @@ jobs:
         source build/envsetup.sh
         export ALLOW_MISSING_DEPENDENCIES=true
         export LC_ALL="C"
+        
+        # Система увидит твой файл ~/fox_sync/device/unowhy/k1002/omni_k1002.mk
         lunch omni_k1002-eng
         mka recoveryimage
 
     - name: Upload Recovery
       uses: actions/upload-artifact@v4
       with:
-        name: OrangeFox-k1002
+        name: OrangeFox-k1002-Recovery
+        # Путь, где появится готовый образ (img)
         path: ~/fox_sync/out/target/product/k1002/recovery.img
