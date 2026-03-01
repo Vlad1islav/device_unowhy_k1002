@@ -46,7 +46,7 @@ jobs:
         mka recoveryimage
 
     - name: Upload Recovery
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: OrangeFox-k1002
         path: ~/fox_sync/out/target/product/k1002/recovery.img
