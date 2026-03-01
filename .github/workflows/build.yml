@@ -6,8 +6,7 @@ on:
 jobs:
   build:
     name: Build Recovery
-    # Ставим ту версию, которую ты выбрал на скрине
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-22.04 # Твой выбор
 
     steps:
     - name: Checkout Device Tree
@@ -18,14 +17,17 @@ jobs:
     - name: Set up Build Environment
       run: |
         sudo apt-get update
-        # Установка базовых пакетов
-        sudo apt-get install -y git-core gnupg flex bison build-essential zip curl zlib1g-dev gcc-multilib g++-multilib libc6-dev-i386 x11proto-core-dev libx11-dev lib32z1-dev libgl1-mesa-dev libxml2-utils xsltproc unzip fontconfig python2 python-is-python2
+        # Ставим доступные пакеты
+        sudo apt-get install -y git-core gnupg flex bison build-essential zip curl zlib1g-dev gcc-multilib g++-multilib libc6-dev-i386 x11proto-core-dev libx11-dev lib32z1-dev libgl1-mesa-dev libxml2-utils xsltproc unzip fontconfig python2
         
-        # ФИКС ДЛЯ UBUNTU 22.04: качаем старый ncurses вручную, раз его нет в репозитории
+        # Решаем проблему с libncurses5 (скачиваем вручную для 22.04)
         wget http://archive.ubuntu.com/ubuntu/pool/universe/n/ncurses/libtinfo5_6.3-2_amd64.deb
         sudo dpkg -i libtinfo5_6.3-2_amd64.deb
         wget http://archive.ubuntu.com/ubuntu/pool/universe/n/ncurses/libncurses5_6.3-2_amd64.deb
         sudo dpkg -i libncurses5_6.3-2_amd64.deb
+        
+        # Решаем проблему с python-is-python2
+        sudo ln -sf /usr/bin/python2 /usr/bin/python
 
     - name: Download OrangeFox Source (Android 9.0)
       run: |
@@ -36,18 +38,17 @@ jobs:
         git config --global user.name "Builder"
         git config --global user.email "builder@example.com"
         
-        # Установка repo
         curl https://storage.googleapis.com/git-repo-downloads/repo > ~/repo
         chmod a+x ~/repo
         sudo mv ~/repo /usr/local/bin/repo
         
-        # Исправленный repo init (без --u и с защитой от ошибки 500)
+        # Исправленный init (одна черточка -u и защита от ошибки 500)
         repo init -u https://github.com/OrangeFoxRecovery/Manifest.git -b fox_9.0 --depth=1 --no-clone-bundle
         repo sync -c -j$(nproc --all) --force-sync --no-clone-bundle --no-tags
 
     - name: Move Device Tree to Source
       run: |
-        # Твой путь к дереву из скрина
+        # Используем пути под твое дерево
         mkdir -p ~/fox_sync/device/unowhy
         mv $GITHUB_WORKSPACE/device_tree ~/fox_sync/device/unowhy/k1002
 
@@ -58,12 +59,11 @@ jobs:
         export ALLOW_MISSING_DEPENDENCIES=true
         export LC_ALL="C"
         
-        # Используем твой конфиг omni_k1002.mk
         lunch omni_k1002-eng
         mka recoveryimage
 
     - name: Upload Recovery
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v4 # Обновил до v4, чтобы не было ошибки deprecation
       with:
         name: OrangeFox-k1002-Recovery
         path: ~/fox_sync/out/target/product/k1002/recovery.img
