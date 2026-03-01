@@ -6,7 +6,7 @@ on:
 jobs:
   build:
     name: Build Recovery
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
 
     steps:
     - name: Checkout Device Tree
